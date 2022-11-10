@@ -27,40 +27,65 @@ import SwiftUI
 
  let BASE_URL = "https://api.edamam.com/api/recipes/v2?type=public&q=turkish&app_id=062e2906&app_key=ab4f8a9c1b6ba8b2b72c475829e7f354"
 
-/*
-class WebSer{
-    func getRec(completion : @escaping (Recipe?) -> ()){
-        guard let url = URL(string: BASE_URL) else { return }
-        
-        URLSession.shared.recipesTask(with: url) { recipes, response, error in
-            if let recipes = recipes {
-                DispatchQueue.main.async {
-                    
-                    recipes.hits.forEach { element in
-                     //   self.recipe.append(element.recipe)
-                        completion(element.recipe)
-                    }
-                   // for item in recipes.hits {
-                    //    self.recipe.append(item.recipe)
-                   // }
+struct Resource<T : Codable> {
+    let url: URL
+}
 
+enum NetworkError : Error {
+    case decodingError
+    case domainError
+    case urlError
+}
+
+class Webservice {
+    func load<T>(resource : Resource<T>, completion: @escaping (Result<T, NetworkError>) -> Void) {
+        URLSession.shared.dataTask(with: resource.url) { data, response, error in
+            guard let data = data, error == nil else {
+                completion(.failure(.domainError))
+                return
+            }
+            let result = try? JSONDecoder().decode(T.self, from: data)
+            if let result = result {
+                DispatchQueue.main.async {
+                    completion(.success(result))
                 }
-               
+            } else {
+                completion(.failure(.decodingError))
             }
             
         }.resume()
     }
 }
-*/
+
+
+
+
 class RecipesViewModel: ObservableObject{
    
     @Published var recipe = [Recipe]()
     @Published var hits = [Hit]()
     
     init(){
-        getRecipe()
+       getRecipesWithWebService()
     }
 
+    func getRecipesWithWebService (){
+        guard let url = URL(string: BASE_URL) else {
+            fatalError("The URL is not correct")
+            return
+        }
+        
+        let resource = Resource<[Recipes]>(url: url)
+        
+        Webservice().load(resource: resource) { result in
+            switch result {
+            case .success(let recipes):
+                print(recipes)
+            case  .failure(let error):
+                print(error)
+            }
+        }
+    }
     
     func getRecipe(){
         
